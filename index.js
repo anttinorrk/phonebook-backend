@@ -26,8 +26,25 @@ let persons = [
   }
 ]
 
+
+const mongoose = require('mongoose')
+const password = process.env.REACT_APP_MONGO_PASSWORD
+const url = `mongodb+srv://anttinorrk:${password}@cluster0.m0usr.mongodb.net/phonebookDB?retryWrites=true&w=majority`
+console.log('url: ' + url)
+mongoose.connect(url)
+
+const ContactSchema = new mongoose.Schema({
+  name: String,
+  number: String
+})
+
+const Contact = mongoose.model('Contact', ContactSchema)
+
+
 app.get('/api/persons', (request, response) => {
-  response.json(persons)
+  Contact.find({}).then(cur => {
+    response.json(cur)
+  })
 })
 
 app.get('/api/persons/:id', (request, response) => {
