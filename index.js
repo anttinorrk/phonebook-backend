@@ -11,23 +11,6 @@ app.use(express.json())
 app.use(morgan('tiny'))
 app.use(cors())
 
-let persons = [
-  {
-    "id": 1,
-    "name": "Arto Hellas",
-    "number": "040-123456"
-  },
-  {
-    "id": 2,
-    "name": "Ada Lovelace",
-    "number": "040 654321"
-  },
-  {
-    "id": 3,
-    "name": "Dan Abramov",
-    "number": "123 4567"
-  }
-]
 
 app.get('/api/persons', (request, response) => {
   Contact.find({}).then(cur => {
@@ -91,7 +74,7 @@ app.put('/api/persons/:id', (request, response, next) => {
 
 app.delete('/api/persons/:id', (request, response, next) => {
     Contact.findByIdAndRemove(request.params.id)
-    .then(result => {
+    .then(() => {
       response.status(204).end()
     })
     .catch(error => next(error))

@@ -22,7 +22,7 @@ if (process.argv.length>4) {
         name: process.argv[3],
         number: process.argv[4]
     })
-    contact.save().then(res => {
+    contact.save().then(() => {
         console.log(`added ${process.argv[3]} number ${process.argv[4]} to phonebook`)
         mongoose.connection.close()
     })
