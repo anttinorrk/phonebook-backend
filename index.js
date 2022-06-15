@@ -1,12 +1,15 @@
+require('dotenv').config()
 const express = require('express')
 const app = express()
 const morgan = require('morgan')
 const cors = require('cors')
+const Contact = require('./models/contact')
 
+app.use(express.static('build'))
 app.use(express.json())
+
 app.use(morgan('tiny'))
 app.use(cors())
-app.use(express.static('build'))
 
 let persons = [
   {
@@ -26,81 +29,91 @@ let persons = [
   }
 ]
 
-
-const mongoose = require('mongoose')
-const password = process.env.REACT_APP_MONGO_PASSWORD
-const url = `mongodb+srv://anttinorrk:${password}@cluster0.m0usr.mongodb.net/phonebookDB?retryWrites=true&w=majority`
-console.log('url: ' + url)
-mongoose.connect(url)
-
-const ContactSchema = new mongoose.Schema({
-  name: String,
-  number: String
-})
-
-const Contact = mongoose.model('Contact', ContactSchema)
-
-
 app.get('/api/persons', (request, response) => {
   Contact.find({}).then(cur => {
     response.json(cur)
   })
 })
 
-app.get('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    console.log(id, typeof id)
-    const person = persons.find(person => person.id === id )
-    person
-      ? response.json(person)
-      : response.status(404).end()
+//TODO 3.16: Error handling with express middleware
+app.get('/api/persons/:id', (request, response, next) => {
+  Contact.findById(request.params.id)
+  .then(person => {
+    if (person) {
+      response.json(person)
+    } else {
+      response.status(404).end()
+    }
+  })
+  .catch(error => next(error))
 })
 
-app.get('/info', (request, response) => {
-  const personCount = persons.length
-  response.send(`Phonebook has ${personCount} persons saved<br><br>${new Date()}`)
+app.get('/info', (request, response, next) => {
+  Contact.countDocuments({})
+  .then(count => {
+    response.send(`Phonebook has ${count} persons saved<br><br>${new Date()}`)
+  })
+  .catch(error => next(error))
 })
 
-const generateId = () => {
-  const newId = Math.floor(Math.random() * 10000)
-    return newId
-}
-const duplicateName = (newName) => {
-  return persons.map(c => c.name).includes(newName)
-}
-
-app.post('/api/persons', (request, response) => {
+app.post('/api/persons', (request, response, next) => {
   const body = request.body
-  console.log(body)
+  console.log('posting: ', body)
   if (!body.name || !body.number) {
     return response.status(400).json({
       error: 'name or number missing'
     })
-  } else if (duplicateName(body.name)){
-    console.log(duplicateName())
-    return response.status(409).json({
-      error: 'name is already on the list'
-    })
   }
+  const person = new Contact({
+    name: body.name,
+    number: body.number
+  })
+  person.save()
+    .then(newContact => {
+      response.json(newContact)
+    })
+    .catch(error => next(error))
+})
+
+app.put('/api/persons/:id', (request, response, next) => {
+  const body = request.body
   const person = {
     name: body.name,
-    number: body.number,
-    id: generateId()
+    number: body.number
   }
-  persons = persons.concat(person)
-  response.json(person)
+
+  Contact.findByIdAndUpdate(request.params.id, person)
+  .then(updated => {
+    response.json(updated)
+  })
+  .catch(error => next(error))
 })
 
-app.delete('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    persons = persons.filter(person => person.id !== id)
-    
-    response.status(204).end()
+app.delete('/api/persons/:id', (request, response, next) => {
+    Contact.findByIdAndRemove(request.params.id)
+    .then(result => {
+      response.status(204).end()
+    })
+    .catch(error => next(error))
 })
 
 
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
 
-const PORT = process.env.PORT || 3001
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } else if (error.name === 'ValidationError') {
+    return response.status(400).json({ error: error.message })
+  }
+
+  next(error)
+}
+
+app.use(errorHandler)
+
+
+const PORT = process.env.PORT
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
